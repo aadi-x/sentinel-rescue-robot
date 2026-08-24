@@ -1,0 +1,18 @@
+# Runtime data: can include real coordinates, detection history and transcripts.
+sentinel.db
+
+# Downloaded model weights are obtained automatically at application startup.
+*.pt
+
+# Python cache and local configuration.
+__pycache__/
+*.py[cod]
+.env
+.venv/
+venv/
+
+# Editor/OS files.
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

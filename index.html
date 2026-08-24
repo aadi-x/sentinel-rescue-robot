@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SENTINEL // AI Emergency Reconnaissance &amp; Response Robot</title>
+
+<!-- Fonts: Rajdhani (display/technical), Share Tech Mono (telemetry data), Inter (body/labels) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+<!-- Leaflet (free, no API key) for the live location map -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+<link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+
+<!-- ======================================================
+     EDIT: change robot name / mission title here and in style
+     ====================================================== -->
+<div class="scanlines" aria-hidden="true"></div>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">◈</span>
+    <div class="brand-text">
+      <h1>SENTINEL<span class="brand-sub">-01</span></h1>
+      <p class="brand-tag">AI-Powered Emergency Reconnaissance &amp; Response Robot</p>
+    </div>
+  </div>
+
+  <!-- Signature element: live pipeline strip, mirrors the flow diagram from the project notes -->
+  <div class="pipeline" id="pipeline" aria-label="System data pipeline">
+    <div class="pipe-node" data-node="robot"><span class="pipe-dot"></span><span class="pipe-label">ROBOT</span></div>
+    <div class="pipe-line"></div>
+    <div class="pipe-node" data-node="camera"><span class="pipe-dot"></span><span class="pipe-label">CAMERA</span></div>
+    <div class="pipe-line"></div>
+    <div class="pipe-node" data-node="ai"><span class="pipe-dot"></span><span class="pipe-label">AI DETECTION</span></div>
+    <div class="pipe-line"></div>
+    <div class="pipe-node" data-node="dash"><span class="pipe-dot"></span><span class="pipe-label">DASHBOARD</span></div>
+    <div class="pipe-line pipe-line-branch"></div>
+    <div class="pipe-node" data-node="gps"><span class="pipe-dot"></span><span class="pipe-label">GPS</span></div>
+    <div class="pipe-line"></div>
+    <div class="pipe-node" data-node="alert"><span class="pipe-dot"></span><span class="pipe-label">ALERT</span></div>
+  </div>
+
+  <div class="status-cluster">
+    <div class="status-chip" id="connectivityChip">
+      <span class="status-dot"></span>
+      <span id="connectivityText">CHECKING</span>
+    </div>
+    <div class="clock" id="clock">
+      <div id="clockTime">--:--:--</div>
+      <div id="clockDate">----.--.--</div>
+    </div>
+  </div>
+</header>
+
+<main class="grid">
+
+  <!-- ===================== LEFT COLUMN ===================== -->
+  <section class="col col-main">
+
+    <!-- Module 02: Live camera feed -->
+    <div class="panel panel-camera">
+      <div class="panel-head">
+        <span class="mod-badge">02</span>
+        <h2>Live Camera Feed</h2>
+        <a class="btn-mini" id="camToggle" href="/mobile" target="_blank">OPEN MOBILE CAMERA</a>
+      </div>
+      <div class="camera-stage">
+        <img id="camVideo" alt="Waiting for phone camera feed">
+        <canvas id="camOverlay"></canvas>
+        <div class="camera-placeholder" id="camPlaceholder">
+          <span>◎</span>
+          <p>Camera feed offline — click "Enable Camera" to start streaming</p>
+        </div>
+        <div class="camera-hud">
+          <span class="rec-dot"></span> LIVE
+        </div>
+      </div>
+    </div>
+
+    <!-- Module 01: Live location map -->
+    <div class="panel panel-map">
+      <div class="panel-head">
+        <span class="mod-badge">01</span>
+        <h2>Live Location</h2>
+        <span class="panel-sub" id="coordsText">lat --, lon --</span>
+      </div>
+      <div id="mapView"></div>
+    </div>
+
+  </section>
+
+  <!-- ===================== RIGHT COLUMN ===================== -->
+  <aside class="col col-side">
+
+    <!-- Modules 03-06: Detection -->
+    <div class="panel panel-detect">
+      <div class="panel-head">
+        <span class="mod-badge">03–06</span>
+        <h2>Detection</h2>
+        <span class="panel-sub" id="criticalScore">CRITICAL --%</span>
+      </div>
+      <div class="detect-grid">
+        <div class="detect-item" id="det-object" data-mod="03">
+          <div class="detect-icon">▣</div>
+          <div class="detect-label">Objects</div>
+          <div class="detect-value">0</div>
+        </div>
+        <div class="detect-item" id="det-human" data-mod="04">
+          <div class="detect-icon">☉</div>
+          <div class="detect-label">Human / Person</div>
+          <div class="detect-value">CLEAR</div>
+        </div>
+        <div class="detect-item" id="det-vehicle" data-mod="05">
+          <div class="detect-icon">▭</div>
+          <div class="detect-label">Vehicle</div>
+          <div class="detect-value">CLEAR</div>
+        </div>
+        <div class="detect-item" id="det-hazard" data-mod="06">
+          <div class="detect-icon">⚠</div>
+          <div class="detect-label">Hazard</div>
+          <div class="detect-value">CLEAR</div>
+        </div>
+      </div>
+      <ul class="detect-log" id="detectLog"><!-- populated by script.js --></ul>
+    </div>
+
+    <!-- Modules 07-10: Telemetry -->
+    <div class="panel panel-telemetry">
+      <div class="panel-head">
+        <span class="mod-badge">07–10</span>
+        <h2>Telemetry</h2>
+      </div>
+
+      <div class="telem-row">
+        <div class="telem-label">Battery</div>
+        <div class="telem-bar"><div class="telem-bar-fill" id="batteryFill"></div></div>
+        <div class="telem-value" id="batteryValue">--%</div>
+      </div>
+
+      <div class="telem-mini-grid">
+        <div class="telem-mini">
+          <div class="telem-mini-label">Onboard Temp</div>
+          <div class="telem-mini-value" id="tempValue">-- °C</div>
+        </div>
+        <div class="telem-mini">
+          <div class="telem-mini-label">Weather</div>
+          <div class="telem-mini-value" id="weatherValue">--</div>
+        </div>
+        <div class="telem-mini">
+          <div class="telem-mini-label">Ambient</div>
+          <div class="telem-mini-value" id="ambientValue">-- °C</div>
+        </div>
+        <div class="telem-mini">
+          <div class="telem-mini-label">Uptime</div>
+          <div class="telem-mini-value" id="uptimeValue">00:00:00</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Module 12: Nearest emergency / police -->
+    <div class="panel panel-nearest">
+      <div class="panel-head">
+        <span class="mod-badge">12</span>
+        <h2>Nearest Emergency Services</h2>
+      </div>
+      <ul class="nearest-list" id="nearestList">
+        <li class="nearest-item nearest-loading">Scanning for nearby stations…</li>
+      </ul>
+    </div>
+
+  </aside>
+
+  <!-- ===================== BOTTOM BAR ===================== -->
+  <!-- Module 13: SOS / alert status -->
+  <section class="col col-full panel panel-sos" id="sosPanel">
+    <div class="sos-left">
+      <span class="mod-badge">13</span>
+      <div>
+        <h2>SOS / Alert Status</h2>
+        <p class="sos-status" id="sosStatusText">SYSTEM NOMINAL — NO ACTIVE ALERTS</p>
+      </div>
+    </div>
+    <div class="sos-right">
+      <button class="btn-sos" id="sosButton">TRIGGER SOS</button>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <span>Module 11 — Connectivity: <span id="footerConn">--</span></span>
+  <span class="footer-dot">•</span>
+  <span>Phone telemetry and YOLO detections are live when the mobile uplink is connected.</span>
+</footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="/assets/script.js"></script>
+</body>
+</html>
